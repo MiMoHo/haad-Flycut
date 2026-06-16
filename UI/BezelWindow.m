@@ -199,6 +199,7 @@ static const float lineHeight = 16;
 		[imagePreview setImageScaling:NSImageScaleProportionallyUpOrDown];
 		[imagePreview setImageAlignment:NSImageAlignCenter];
 		[imagePreview setImageFrameStyle:NSImageFrameNone];
+		[imagePreview setAnimates:YES]; // play multi-frame GIFs in the preview
 		[imagePreview setHidden:YES];
 		[[self contentView] addSubview:imagePreview];
 		isShowingImage = NO;

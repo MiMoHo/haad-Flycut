@@ -19,6 +19,17 @@ static FlycutImageStore *sharedInstance = nil;
     return sharedInstance;
 }
 
++(NSString *)fileExtensionForType:(NSString *)uti
+{
+    if ([uti isEqualToString:@"com.compuserve.gif"])
+        return @"gif";
+    if ([uti isEqualToString:@"public.png"])
+        return @"png";
+    if ([uti isEqualToString:@"public.jpeg"])
+        return @"jpg";
+    return @"tiff";
+}
+
 -(id)init
 {
     self = [super init];
@@ -51,51 +62,72 @@ static FlycutImageStore *sharedInstance = nil;
     return hashString;
 }
 
--(NSString *)filePathForHash:(NSString *)hash
+-(NSString *)filePathForHash:(NSString *)hash extension:(NSString *)ext
 {
+    if (!ext || [ext length] == 0)
+        ext = @"tiff";
     return [imagesDirectoryPath stringByAppendingPathComponent:
-            [NSString stringWithFormat:@"%@.tiff", hash]];
+            [NSString stringWithFormat:@"%@.%@", hash, ext]];
+}
+
+// Resolves a hash to whatever extension it was actually stored under (e.g. .gif,
+// .png, or legacy .tiff). Returns nil if no matching file exists.
+-(NSString *)resolvedPathForHash:(NSString *)hash
+{
+    if (!hash)
+        return nil;
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *prefix = [hash stringByAppendingString:@"."];
+    for (NSString *file in [fm contentsOfDirectoryAtPath:imagesDirectoryPath error:nil]) {
+        if ([file hasPrefix:prefix])
+            return [imagesDirectoryPath stringByAppendingPathComponent:file];
+    }
+    return nil;
 }
 
 -(BOOL)saveImageData:(NSData *)data forHash:(NSString *)hash
 {
+    return [self saveImageData:data forHash:hash extension:@"tiff"];
+}
+
+-(BOOL)saveImageData:(NSData *)data forHash:(NSString *)hash extension:(NSString *)ext
+{
     if (!data || !hash)
         return NO;
 
-    NSString *filePath = [self filePathForHash:hash];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:filePath])
+    // Content-addressed: if any representation of this hash is already stored, keep it.
+    if ([self resolvedPathForHash:hash])
         return YES;
 
+    NSString *filePath = [self filePathForHash:hash extension:ext];
     return [data writeToFile:filePath atomically:YES];
 }
 
 -(NSData *)imageDataForHash:(NSString *)hash
 {
-    if (!hash)
-        return nil;
-
-    NSString *filePath = [self filePathForHash:hash];
-    if (![[NSFileManager defaultManager] fileExistsAtPath:filePath])
+    NSString *filePath = [self resolvedPathForHash:hash];
+    if (!filePath)
         return nil;
 
     return [NSData dataWithContentsOfFile:filePath];
 }
 
+-(NSString *)imageFilePathForHash:(NSString *)hash
+{
+    return [self resolvedPathForHash:hash];
+}
+
 -(void)deleteImageForHash:(NSString *)hash
 {
-    if (!hash)
-        return;
-
-    NSString *filePath = [self filePathForHash:hash];
-    [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+    NSString *filePath = [self resolvedPathForHash:hash];
+    if (filePath)
+        [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
 }
 
 -(BOOL)hasImageForHash:(NSString *)hash
 {
-    if (!hash)
-        return NO;
-
-    return [[NSFileManager defaultManager] fileExistsAtPath:[self filePathForHash:hash]];
+    return [self resolvedPathForHash:hash] != nil;
 }
 
 -(NSString *)imagesDirectoryPath
@@ -108,7 +140,8 @@ static FlycutImageStore *sharedInstance = nil;
     NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:imagesDirectoryPath error:nil];
     NSMutableArray *hashes = [NSMutableArray arrayWithCapacity:[files count]];
     for (NSString *file in files) {
-        if ([file hasSuffix:@".tiff"]) {
+        // Any stored image representation (.tiff/.gif/.png/.jpg) maps back to its hash.
+        if ([[file pathExtension] length] > 0 && ![file hasPrefix:@"."]) {
             [hashes addObject:[file stringByDeletingPathExtension]];
         }
     }

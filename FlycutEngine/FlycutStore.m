@@ -95,13 +95,14 @@
 	return YES;
 }
 
--(bool) addImageClippingWithHash:(NSString *)hash imageSize:(NSSize)size fromAppLocalizedName:(NSString *)appLocalizedName fromAppBundleURL:(NSString *)bundleURL atTimestamp:(NSInteger)timestamp
+-(bool) addImageClippingWithHash:(NSString *)hash imageSize:(NSSize)size imageType:(NSString *)imageType fromAppLocalizedName:(NSString *)appLocalizedName fromAppBundleURL:(NSString *)bundleURL atTimestamp:(NSInteger)timestamp
 {
     if (!hash || [hash length] == 0)
         return NO;
 
     FlycutClipping *newClipping = [[FlycutClipping alloc] initWithImageHash:hash
                                                              withImageSize:size
+                                                              withImageType:imageType
                                                           withDisplayLength:[self displayLen]
                                                        withAppLocalizedName:appLocalizedName
                                                            withAppBundleURL:bundleURL

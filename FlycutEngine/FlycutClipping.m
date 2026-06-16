@@ -45,12 +45,12 @@
     return self;
 }
 
--(id) initWithImageHash:(NSString *)hash withImageSize:(NSSize)size withDisplayLength:(int)displayLength withAppLocalizedName:(NSString *)localizedName withAppBundleURL:(NSString*)bundleURL withTimestamp:(NSInteger)timestamp
+-(id) initWithImageHash:(NSString *)hash withImageSize:(NSSize)size withImageType:(NSString *)imageType withDisplayLength:(int)displayLength withAppLocalizedName:(NSString *)localizedName withAppBundleURL:(NSString*)bundleURL withTimestamp:(NSInteger)timestamp
 {
     [super init];
     clipContents = [@"" retain];
     clipDisplayString = [[[NSString alloc] init] retain];
-    clipType = [NSPasteboardTypeTIFF retain];
+    clipType = [(imageType != nil ? imageType : NSPasteboardTypeTIFF) retain];
     clipDisplayLength = displayLength > 0 ? displayLength : 40;
 
     [self setImageHash:hash];
@@ -161,12 +161,13 @@
     [clipDisplayString release];
 
     if (imageHash != nil) {
+        NSString *label = [clipType isEqualToString:@"com.compuserve.gif"] ? @"GIF" : @"Image";
         NSString *newDisplayString;
         if (imageSize.width > 0 && imageSize.height > 0) {
-            newDisplayString = [NSString stringWithFormat:@"[Image %dx%d]",
-                                (int)imageSize.width, (int)imageSize.height];
+            newDisplayString = [NSString stringWithFormat:@"[%@ %dx%d]",
+                                label, (int)imageSize.width, (int)imageSize.height];
         } else {
-            newDisplayString = @"[Image]";
+            newDisplayString = [NSString stringWithFormat:@"[%@]", label];
         }
         [newDisplayString retain];
         clipDisplayString = newDisplayString;

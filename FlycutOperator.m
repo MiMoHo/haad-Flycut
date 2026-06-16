@@ -265,7 +265,7 @@
         NSDate *currentDate = [NSDate date];
         NSString *dateString = [dateFormatterForFilename stringFromDate:currentDate];
 
-        NSString *fileExt = isImage ? @"tiff" : @"txt";
+        NSString *fileExt = isImage ? [FlycutImageStore fileExtensionForType:[clipping type]] : @"txt";
         NSString *fileName = [NSString stringWithFormat:@"%@%@Clipping %@.%@",
                               prefix, store == favoritesStore ? @"Favorite " : @"", dateString, fileExt];
 
@@ -493,10 +493,13 @@
 	return  NO;
 }
 
--(bool)addImageClipping:(NSData *)imageData fromApp:(NSString *)appName withAppBundleURL:(NSString *)bundleURL target:(id)selectorTarget clippingAddedSelector:(SEL)clippingAddedSelector
+-(bool)addImageClipping:(NSData *)imageData fromApp:(NSString *)appName withAppBundleURL:(NSString *)bundleURL imageType:(NSString *)imageType target:(id)selectorTarget clippingAddedSelector:(SEL)clippingAddedSelector
 {
     if (!imageData || [imageData length] == 0)
         return NO;
+
+    if (!imageType)
+        imageType = NSPasteboardTypeTIFF;
 
     FlycutImageStore *imgStore = [FlycutImageStore sharedStore];
     NSString *hash = [imgStore hashForData:imageData];
@@ -509,7 +512,7 @@
             return NO;
     }
 
-    [imgStore saveImageData:imageData forHash:hash];
+    [imgStore saveImageData:imageData forHash:hash extension:[FlycutImageStore fileExtensionForType:imageType]];
 
     NSSize pixelSize = NSZeroSize;
     NSImage *tempImage = [[NSImage alloc] initWithData:imageData];
@@ -523,6 +526,7 @@
 
     bool success = [clippingStore addImageClippingWithHash:hash
                                                 imageSize:pixelSize
+                                                imageType:imageType
                                      fromAppLocalizedName:appName
                                          fromAppBundleURL:bundleURL
                                               atTimestamp:[[NSDate date] timeIntervalSince1970]];
@@ -1073,6 +1077,7 @@
 						[[aSavedClipping objectForKey:@"ImageHeight"] doubleValue]);
 					[store addImageClippingWithHash:imgHash
 										  imageSize:imgSize
+										  imageType:[aSavedClipping objectForKey:@"Type"]
 								fromAppLocalizedName:[aSavedClipping objectForKey:@"AppLocalizedName"]
 									fromAppBundleURL:[aSavedClipping objectForKey:@"AppBundleURL"]
 										 atTimestamp:[[aSavedClipping objectForKey:@"Timestamp"] integerValue]];

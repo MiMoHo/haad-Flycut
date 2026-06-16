@@ -25,7 +25,7 @@
 }
 
 -(id) initWithContents:(NSString *)contents withType:(NSString *)type withDisplayLength:(int)displayLength withAppLocalizedName:(NSString *)localizedName withAppBundleURL:(NSString *)bundleURL withTimestamp:(NSInteger)timestamp;
--(id) initWithImageHash:(NSString *)hash withImageSize:(NSSize)size withDisplayLength:(int)displayLength withAppLocalizedName:(NSString *)localizedName withAppBundleURL:(NSString *)bundleURL withTimestamp:(NSInteger)timestamp;
+-(id) initWithImageHash:(NSString *)hash withImageSize:(NSSize)size withImageType:(NSString *)imageType withDisplayLength:(int)displayLength withAppLocalizedName:(NSString *)localizedName withAppBundleURL:(NSString *)bundleURL withTimestamp:(NSInteger)timestamp;
 /* -(id) initWithCoder:(NSCoder *)coder;
 -(void) decodeWithCoder:(NSCoder *)coder; */
 -(NSString *) description;
