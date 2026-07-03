@@ -107,7 +107,10 @@
         @"captureImages",
         [NSNumber numberWithInt:10240],
         @"maxImageSizeKB",
-        [NSNumber numberWithBool:YES],
+        // Off by default: this feature issues a network request to a URL taken
+        // from copied HTML, which must be an explicit opt-in for a clipboard
+        // manager that otherwise never touches the network.
+        [NSNumber numberWithBool:NO],
         @"downloadAnimatedGIFs",
         nil]];
 
