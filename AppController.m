@@ -885,7 +885,9 @@
 	NSLog(@"pasteFromStack called");
 	NSString *content = [flycutOperator getPasteFromStackPosition];
 	if ( nil != content ) {
-		NSLog(@"Content found, adding to pasteboard and preparing to paste: %@", [content substringToIndex:MIN(content.length, 50)]);
+		// Never log clipping contents; NSLog output lands in the unified log, which
+		// other processes and diagnostics can read.
+		NSLog(@"Content found, adding to pasteboard and preparing to paste");
 		[self addClipToPasteboard:content];
 		[self performSelector:@selector(hideApp) withObject:nil afterDelay:0.2];
 		[self performSelector:@selector(fakeCommandV) withObject:nil afterDelay:0.5];
@@ -1418,11 +1420,11 @@ didFailToRegisterForRemoteNotificationsWithError:(NSError *)error {
 
 			if ( [alert runModal] == NSAlertFirstButtonReturn )
 			{
-				[[NSUserDefaults standardUserDefaults] setValue:[NSNumber numberWithBool:NO]];
+				[[NSUserDefaults standardUserDefaults] setValue:[NSNumber numberWithBool:NO] forKey:@"syncClippingsViaICloud"];
 			}
 			else
 			{
-				[[NSUserDefaults standardUserDefaults] setValue:[NSNumber numberWithInt:2]];
+				[[NSUserDefaults standardUserDefaults] setValue:[NSNumber numberWithInt:2] forKey:@"savePreference"];
 			}
 			[alert release];
 		}
