@@ -134,6 +134,19 @@
         clipHasName = newHasName;
 }
 
+-(void) setRichData:(NSDictionary *)newRichData
+{
+    id old = clipRichData;
+    [newRichData retain];
+    clipRichData = newRichData;
+    [old release];
+}
+
+-(NSDictionary *) richData
+{
+    return clipRichData;
+}
+
 -(void) resetDisplayString
 {
     NSString *newDisplayString, *firstLineOfClipping, *trimmedString;
@@ -234,6 +247,7 @@
     [clipType release];
     [appLocalizedName release];
     [appBundleURL release];
+    [clipRichData release];
     clipDisplayLength = 0;
     [clipDisplayString release];
     clipHasName = 0;

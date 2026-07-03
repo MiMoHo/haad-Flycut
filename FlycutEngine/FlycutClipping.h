@@ -29,6 +29,8 @@
     NSString * appBundleURL;
 // The time
     NSInteger clipTimestamp;
+// Optional rich representations of the text (pasteboard type -> NSData), e.g. RTF or HTML
+    NSDictionary * clipRichData;
 }
 
 -(id) initWithContents:(NSString *)contents withType:(NSString *)type withDisplayLength:(int)displayLength withAppLocalizedName:(NSString *)localizedName withAppBundleURL:(NSString *)bundleURL withTimestamp:(NSInteger)timestamp;
@@ -42,6 +44,7 @@
 -(void) setType:(NSString *)newType;
 -(void) setDisplayLength:(int)newDisplayLength;
 -(void) setHasName:(BOOL)newHasName;
+-(void) setRichData:(NSDictionary *)newRichData;
 
 // Retrieve values
 -(FlycutClipping *) clipping;
@@ -53,6 +56,7 @@
 -(NSString *) appBundleURL;
 -(NSInteger) timestamp;
 -(BOOL) hasName;
+-(NSDictionary *) richData;
 
 // Additional functions
 -(void) resetDisplayString;

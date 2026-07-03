@@ -77,6 +77,7 @@
 -(NSString *) clippingContentsAtPosition:(int)index;
 -(NSString *) clippingDisplayStringAtPosition:(int)index;
 -(NSString *) clippingTypeAtPosition:(int)index;
+-(NSDictionary *) clippingRichDataAtPosition:(int)index;
 -(NSArray *) previousContents:(int)howMany;
 -(NSArray *) previousDisplayStrings:(int)howMany;
 -(NSArray *) previousDisplayStrings:(int)howMany containing:(NSString*)search;
@@ -87,6 +88,7 @@
 
 // Add a clipping
 -(bool) addClipping:(NSString *)clipping ofType:(NSString *)type fromAppLocalizedName:(NSString *)appLocalizedName fromAppBundleURL:(NSString *)bundleURL atTimestamp:(NSInteger) timestamp;
+-(bool) addClipping:(NSString *)clipping ofType:(NSString *)type fromAppLocalizedName:(NSString *)appLocalizedName fromAppBundleURL:(NSString *)bundleURL atTimestamp:(NSInteger) timestamp withRichData:(NSDictionary *)richData;
 -(void) addClipping:(FlycutClipping*) clipping;
 -(void) insertClipping:(FlycutClipping*) clipping atIndex:(int) index;
 
