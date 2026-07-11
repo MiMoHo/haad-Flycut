@@ -35,6 +35,7 @@
 	SRKeyCodeTransformer        *srTransformer;
 	BOOL						isBezelDisplayed;
 	BOOL						isBezelPinned;
+	NSTimeInterval				lastPasteFromStackTime;
 	NSString					*currentKeycodeCharacter;
     NSDateFormatter*            dateFormat;
 	
