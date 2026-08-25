@@ -13,6 +13,7 @@
 // interface and platform-specific mechanisms.
 
 #import "AppController.h"
+#import "AccessibilityPromptPolicy.h"
 #import "SGHotKey.h"
 #import "SGHotKeyCenter.h"
 #import "SRRecorderCell.h"
@@ -174,45 +175,31 @@
     
     NSLog(@"[Accessibility] After prompt request - Bundle: %@, ID: %@, Trusted: %@", 
           bundlePath, bundleID, trusted ? @"YES" : @"NO");
-    
-    if (!trusted) {
-        // Give the system a moment to show the prompt, then open settings
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [self openAccessibilitySettings];
-        });
-    }
 }
 
 - (void)showAccessibilityAlert {
-    BOOL suppressAlert = [[NSUserDefaults standardUserDefaults] boolForKey:@"suppressAccessibilityAlert"];
     NSDictionary* options = @{(id) (kAXTrustedCheckOptionPrompt): @NO};
     BOOL trusted = AXIsProcessTrustedWithOptions((CFDictionaryRef) (options));
     
     // Log context for diagnostics
     NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
-    NSLog(@"[Accessibility] Alert check - Bundle: %@, ID: %@, Trusted: %@, Suppressed: %@", 
-          bundlePath, bundleID, trusted ? @"YES" : @"NO", suppressAlert ? @"YES" : @"NO");
+    NSLog(@"[Accessibility] Alert check - Bundle: %@, ID: %@, Trusted: %@",
+          bundlePath, bundleID, trusted ? @"YES" : @"NO");
     
-    if (!suppressAlert && &AXIsProcessTrustedWithOptions != NULL && !trusted) {
+    if (&AXIsProcessTrustedWithOptions != NULL && !trusted) {
         NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:@"Flycut"];
-        [alert setInformativeText:@"For correct functioning of the app please tick Flycut in Accessibility apps list.\n\nIf Flycut is already listed but paste doesn't work, remove it from the list, then add it again and restart Flycut."];
+        [alert setMessageText:@"Paste Needs Accessibility Access"];
+        [alert setInformativeText:@"macOS does not currently trust this copy of Flycut to control the keyboard. Flycut uses Accessibility access only to send Command-V when you choose a clipping. You can continue without it, but automatic pasting will not work."];
         [alert addButtonWithTitle:@"Open Settings"];
-        [alert addButtonWithTitle:@"Request System Prompt"];
-        alert.showsSuppressionButton = YES;
+        [alert addButtonWithTitle:@"Not Now"];
+        [NSApp activateIgnoringOtherApps:YES];
         NSModalResponse response = [alert runModal];
-        
-        if (alert.suppressionButton.state == NSControlStateValueOn) {
-            [[NSUserDefaults standardUserDefaults] setValue:[NSNumber numberWithBool:YES]
-                                                     forKey:@"suppressAccessibilityAlert"];
-        }
         [alert release];
+        [self hideApp];
         
         if (response == NSAlertFirstButtonReturn) {
             [self openAccessibilitySettings];
-        } else if (response == NSAlertSecondButtonReturn) {
-            [self requestAccessibilityWithPrompt];
         }
     }
 }
@@ -352,11 +339,6 @@
     [[NSUserDefaults standardUserDefaults] setValue:[NSNumber numberWithBool:isEnabled]
                                              forKey:@"loadOnStartup"];
 //    [self registerOrDeregisterICloudSync];
-
-    [NSApp activateIgnoringOtherApps: YES];
-    
-    // Check if the app has Accessibility permission
-    [self showAccessibilityAlert];
 }
 
 -(void)savePreferencesOnDict:(NSMutableDictionary *)saveDict
@@ -960,8 +942,7 @@
 -(void)fakeCommandV {
     NSLog(@"fakeCommandV called - attempting to paste");
 
-    // Check accessibility without prompting - the startup alert handles prompting.
-    // Using @YES here would trigger a system dialog that steals focus and breaks paste.
+    // Check without prompting; prompting here would steal focus and break paste.
     BOOL accessibilityEnabled = AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)@{(__bridge NSString *)kAXTrustedCheckOptionPrompt: @NO});
 
     if (!accessibilityEnabled) {
@@ -970,18 +951,13 @@
         NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
         NSLog(@"[Accessibility FAILURE] Cannot simulate Cmd-V paste. Bundle: %@, ID: %@, Trusted: NO. User must grant Accessibility permission in System Settings.", bundlePath, bundleID);
         
-        dispatch_async(dispatch_get_main_queue(), ^{
-            NSAlert *alert = [[NSAlert alloc] init];
-            alert.messageText = @"Accessibility Access Required";
-            alert.informativeText = @"Flycut needs accessibility access to paste.\n\nIf you already granted permission, try removing Flycut from the Accessibility list, adding it again, and restarting the app.";
-            [alert addButtonWithTitle:@"Open Settings"];
-            [alert addButtonWithTitle:@"Cancel"];
-            NSModalResponse response = [alert runModal];
-            [alert release];
-            if (response == NSAlertFirstButtonReturn) {
-                [self openAccessibilitySettings];
-            }
-        });
+        if (FlycutShouldShowAccessibilityExplanation(
+                true,
+                accessibilityEnabled,
+                hasShownAccessibilityExplanationThisSession)) {
+            hasShownAccessibilityExplanationThisSession = YES;
+            [self showAccessibilityAlert];
+        }
         return;
     }
 
