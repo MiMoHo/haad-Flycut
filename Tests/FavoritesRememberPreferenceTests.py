@@ -135,7 +135,9 @@ class FavoritesRememberPreferenceTests(unittest.TestCase):
             for path in subprocess.check_output(
                 ["/usr/bin/git", "ls-files", "*.m"], cwd=ROOT, text=True
             ).splitlines()
-            if path != "main.m" and not path.startswith("FlycutHelper/")
+            if path != "main.m"
+            and not path.startswith("FlycutHelper/")
+            and not path.startswith("Tests/")
         ]
         include_dirs = sorted({ROOT, *(path.parent for path in sources)})
 
