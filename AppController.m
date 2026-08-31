@@ -22,6 +22,7 @@
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <ServiceManagement/ServiceManagement.h>
+#import <Carbon/Carbon.h>
 
 // Custom search window that handles Cmd-W properly
 @interface SearchWindow : NSWindow
@@ -937,7 +938,13 @@
 
 -(void)fakeKey:(NSNumber*) keyCode withCommandFlag:(BOOL) setFlag
 	/*" +fakeKey synthesizes keyboard events. "*/
-{     
+{
+    if (keyCode == nil)
+    {
+        DLog(@"No key code");
+        return;
+    }
+
     CGEventSourceRef sourceRef = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
     if (!sourceRef)
     {
@@ -985,7 +992,7 @@
         return;
     }
 
-    [self fakeKey:[srTransformer reverseTransformedValue:@"V"] withCommandFlag:TRUE];
+    [self fakeKey:@(kVK_ANSI_V) withCommandFlag:TRUE];
 }
 
 /*" +fakeDownArrow synthesizes keyboard events for the down-arrow key. "*/
