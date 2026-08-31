@@ -13,6 +13,7 @@
 // interface and platform-specific mechanisms.
 
 #import "AppController.h"
+#import "ClipboardGenerationPolicy.h"
 #import "SGHotKey.h"
 #import "SGHotKeyCenter.h"
 #import "SRRecorderCell.h"
@@ -120,7 +121,7 @@
                         ];
 	[settingsSyncList retain];
 
-	menuQueue = dispatch_queue_create(@"com.Flycut.menuUpdateQueue", DISPATCH_QUEUE_SERIAL);
+	clipboardReadQueue = dispatch_queue_create("com.Flycut.clipboardReadQueue", DISPATCH_QUEUE_SERIAL);
 
 	// Initialize search window pointers to nil
 	searchWindow = nil;
@@ -1066,49 +1067,66 @@
 
 -(void)pollPB:(NSTimer *)timer
 {
+    NSInteger pasteboardGeneration = [jcPasteboard changeCount];
+    if ( [pbCount integerValue] == pasteboardGeneration || [flycutOperator storeDisabled] )
+        return;
+
+    [pbCount release];
+    pbCount = [[NSNumber numberWithInteger:pasteboardGeneration] retain];
+
     NSString *type = [jcPasteboard availableTypeFromArray:[NSArray arrayWithObject:NSPasteboardTypeString]];
-    if ( [pbCount intValue] != [jcPasteboard changeCount] && ![flycutOperator storeDisabled] ) {
-        // Reload pbCount with the current changeCount
-        // Probably poor coding technique, but pollPB should be the only thing messing with pbCount, so it should be okay
-        [pbCount release];
-        pbCount = [[NSNumber numberWithInt:[jcPasteboard changeCount]] retain];
-        if ( type != nil ) {
-			NSRunningApplication *currRunningApp = nil;
-			for (NSRunningApplication *currApp in [[NSWorkspace sharedWorkspace] runningApplications])
-				if ([currApp isActive])
-					currRunningApp = currApp;
-			bool largeCopyRisk = nil != currRunningApp && [[currRunningApp localizedName] rangeOfString:@"Remote Desktop Connection"].location != NSNotFound;
+    NSArray *availableTypes = [jcPasteboard types];
+    NSInteger blockedGeneration = [pbBlockCount integerValue];
+    if ( type == nil )
+        return;
 
-			// Microsoft's Remote Desktop Connection has an issue with large copy actions, which appears to be in the time it takes to transer them over the network.  The copy starts being registered with OS X prior to completion of the transfer, and if the active application changes during the transfer the copy will be lost.  Indicate this time period by toggling the menu icon at the beginning of all RDC trasfers and back at the end.  Apple's Screen Sharing does not demonstrate this problem.
-			if (largeCopyRisk)
-				[self toggleMenuIconDisabled];
+    NSRunningApplication *currRunningApp = nil;
+    for (NSRunningApplication *currApp in [[NSWorkspace sharedWorkspace] runningApplications])
+        if ([currApp isActive])
+            currRunningApp = currApp;
 
-			// In case we need to do a status visual, this will be dispatched out so our thread isn't blocked.
-			dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-			dispatch_async(queue, ^{
+    dispatch_async(clipboardReadQueue, ^{
+        NSString *contents = [jcPasteboard stringForType:type];
+        NSInteger pasteboardGenerationAfterRead = [jcPasteboard changeCount];
+        BOOL contentShouldBeSkipped = contents == nil;
+        if (!contentShouldBeSkipped)
+            contentShouldBeSkipped = [flycutOperator shouldSkip:contents ofType:type fromAvailableTypes:availableTypes];
 
-				// This operation blocks until the transfer is complete, though it was was here before the RDC issue was discovered.  Convenient.
-                NSString *contents = [jcPasteboard stringForType:type];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            BOOL revealPasteboardTypes = [[NSUserDefaults standardUserDefaults] boolForKey:@"revealPasteboardTypes"];
+            if (!FCShouldCommitClipboardRead(
+                    pasteboardGeneration,
+                    pasteboardGenerationAfterRead,
+                    blockedGeneration,
+                    [flycutOperator storeDisabled]
+                )) {
+                DLog(@"Contents: Blocked, paused, or changed during read");
+                return;
+            }
 
-				// Toggle back if dealing with the RDC issue.
-				if (largeCopyRisk)
-					[self toggleMenuIconDisabled];
+            if (revealPasteboardTypes) {
+                [flycutOperator addClipping:type
+                                     ofType:type
+                                    fromApp:@"Flycut"
+                           withAppBundleURL:nil
+                                     target:self
+                     clippingAddedSelector:@selector(updateMenu)];
+                return;
+            }
 
-                if ( contents == nil || [flycutOperator shouldSkip:contents ofType:[jcPasteboard availableTypeFromArray:[NSArray arrayWithObject:NSPasteboardTypeString]] fromAvailableTypes:[jcPasteboard types]] ) {
-                   DLog(@"Contents: Empty or skipped");
-               } else {
-                   // Dispatch back to main queue to safely modify the clipping store and update UI.
-                   // jcList (NSMutableArray) is not thread-safe, and concurrent access from this
-                   // background queue and the main thread (e.g. showing the bezel) causes crashes.
-                   dispatch_async(dispatch_get_main_queue(), ^{
-                       if ( ! [pbCount isEqualTo:pbBlockCount] ) {
-                           [flycutOperator addClipping:contents ofType:type fromApp:[currRunningApp localizedName] withAppBundleURL:currRunningApp.bundleURL.path target:self clippingAddedSelector:@selector(updateMenu)];
-                       }
-                   });
-               }
-            });
-        } 
-    }
+            if (contentShouldBeSkipped) {
+                DLog(@"Contents: Empty or skipped");
+                return;
+            }
+
+            [flycutOperator addClipping:contents
+                                 ofType:type
+                                fromApp:[currRunningApp localizedName]
+                       withAppBundleURL:currRunningApp.bundleURL.path
+                                 target:self
+                 clippingAddedSelector:@selector(updateMenu)];
+        });
+    });
 }
 
 - (void)processBezelKeyDown:(NSEvent *)theEvent {
