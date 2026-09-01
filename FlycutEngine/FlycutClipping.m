@@ -137,7 +137,8 @@
 -(void) resetDisplayString
 {
     NSString *newDisplayString, *firstLineOfClipping, *trimmedString;
-	NSUInteger start, lineEnd, contentsEnd;
+	NSUInteger start, lineEnd, contentsEnd, displayEnd;
+    NSInteger remainingDisplayCharacters;
 	NSRange startRange = NSMakeRange(0,0);
 	NSRange contentsRange;
 	// We're resetting the display string, so release the old one.
@@ -147,8 +148,15 @@
     [trimmedString getLineStart:&start end:&lineEnd contentsEnd:&contentsEnd forRange:startRange];
 	contentsRange = NSMakeRange(0, contentsEnd);
 	firstLineOfClipping = [trimmedString substringWithRange:contentsRange];
-    if ( [firstLineOfClipping length] > clipDisplayLength ) {
-        newDisplayString = [[NSString stringWithString:[firstLineOfClipping substringToIndex:clipDisplayLength]] stringByAppendingString:@"…"];   
+    displayEnd = 0;
+    remainingDisplayCharacters = clipDisplayLength;
+    while (displayEnd < [firstLineOfClipping length] && remainingDisplayCharacters > 0) {
+        NSRange composedCharacterRange = [firstLineOfClipping rangeOfComposedCharacterSequenceAtIndex:displayEnd];
+        displayEnd = NSMaxRange(composedCharacterRange);
+        remainingDisplayCharacters--;
+    }
+    if (displayEnd < [firstLineOfClipping length]) {
+        newDisplayString = [[NSString stringWithString:[firstLineOfClipping substringToIndex:displayEnd]] stringByAppendingString:@"…"];
     } else {
         newDisplayString = [NSString stringWithString:firstLineOfClipping];
     }
