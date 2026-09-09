@@ -164,7 +164,8 @@
 }
 
 - (void)requestAccessibilityWithPrompt {
-    // This method WILL trigger the system prompt if permissions are not granted
+    // Ask macOS to present consent asynchronously. The OS decides whether to show
+    // a prompt; this call neither grants access nor resumes an aborted paste.
     NSLog(@"[Accessibility] User requested system prompt for accessibility permissions");
     
     NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
@@ -184,23 +185,13 @@
     // Log context for diagnostics
     NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
-    NSLog(@"[Accessibility] Alert check - Bundle: %@, ID: %@, Trusted: %@",
+    NSLog(@"[Accessibility] Permission check - Bundle: %@, ID: %@, Trusted: %@",
           bundlePath, bundleID, trusted ? @"YES" : @"NO");
     
     if (&AXIsProcessTrustedWithOptions != NULL && !trusted) {
-        NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:@"Paste Needs Accessibility Access"];
-        [alert setInformativeText:@"macOS does not currently trust this copy of Flycut to control the keyboard. Flycut uses Accessibility access only to send Command-V when you choose a clipping. You can continue without it, but automatic pasting will not work."];
-        [alert addButtonWithTitle:@"Open Settings"];
-        [alert addButtonWithTitle:@"Not Now"];
-        [NSApp activateIgnoringOtherApps:YES];
-        NSModalResponse response = [alert runModal];
-        [alert release];
-        [self hideApp];
-        
-        if (response == NSAlertFirstButtonReturn) {
-            [self openAccessibilitySettings];
-        }
+        // fakeCommandV gates this explicit paste action once per session.
+        // Let macOS own consent and Settings navigation, without a prerequisite alert.
+        [self requestAccessibilityWithPrompt];
     }
 }
 
@@ -818,7 +809,7 @@
 }
 
 -(IBAction)recheckAccessibility:(id)sender {
-    // Re-check accessibility state and offer to trigger system prompt
+    // This explicit user action may request native consent when access is missing.
     NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
     NSDictionary* options = @{(id) (kAXTrustedCheckOptionPrompt): @NO};
@@ -835,20 +826,7 @@
         [alert runModal];
         [alert release];
     } else {
-        NSAlert *alert = [[NSAlert alloc] init];
-        alert.messageText = @"Accessibility Access Required";
-        alert.informativeText = [NSString stringWithFormat:@"Flycut does not have accessibility permissions.\n\nBundle: %@\nBundle ID: %@\n\nYou can request the system prompt or open Settings to grant access manually.", bundlePath, bundleID];
-        [alert addButtonWithTitle:@"Request System Prompt"];
-        [alert addButtonWithTitle:@"Open Settings"];
-        [alert addButtonWithTitle:@"Cancel"];
-        NSModalResponse response = [alert runModal];
-        [alert release];
-        
-        if (response == NSAlertFirstButtonReturn) {
-            [self requestAccessibilityWithPrompt];
-        } else if (response == NSAlertSecondButtonReturn) {
-            [self openAccessibilitySettings];
-        }
+        [self requestAccessibilityWithPrompt];
     }
 }
 

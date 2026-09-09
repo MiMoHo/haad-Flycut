@@ -5,6 +5,9 @@ from pathlib import Path
 import re
 import unittest
 
+# Run compiled production-method regressions through the existing test entry point.
+from AccessibilityPromptRegressionTests import AccessibilityPromptRegressionTests
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_CONTROLLER_M = REPO_ROOT / "AppController.m"
@@ -52,52 +55,31 @@ class AccessibilityPromptSourceTests(unittest.TestCase):
         self.assertLess(mark_shown, show)
         self.assertNotIn("dispatch_async", fake_command_v)
 
-    def test_failed_paste_dialog_explains_permission_scope(self) -> None:
+    def test_denied_paste_requests_native_consent_without_prerequisite_ui(self) -> None:
         show_alert = objective_c_method(
             self.implementation, "- (void)showAccessibilityAlert"
         )
-        self.assertIn('@"Paste Needs Accessibility Access"', show_alert)
-        self.assertIn("this copy of Flycut", show_alert)
-        self.assertIn("only to send Command-V", show_alert)
-        self.assertNotIn("kAXTrustedCheckOptionPrompt: @YES", show_alert)
+        self.assertIn("[self requestAccessibilityWithPrompt]", show_alert)
+        self.assertNotIn("NSAlert", show_alert)
+        self.assertNotIn("[self openAccessibilitySettings]", show_alert)
+        self.assertNotIn("[NSApp activateIgnoringOtherApps:", show_alert)
+        self.assertNotIn("[self hideApp]", show_alert)
 
-    def test_failed_paste_dialog_uses_user_controlled_choices(self) -> None:
-        show_alert = objective_c_method(
-            self.implementation, "- (void)showAccessibilityAlert"
-        )
-        self.assertIn('[alert addButtonWithTitle:@"Open Settings"]', show_alert)
-        self.assertIn('[alert addButtonWithTitle:@"Not Now"]', show_alert)
-        self.assertNotIn("Request System Prompt", show_alert)
-        self.assertNotIn("suppressAccessibilityAlert", show_alert)
-        self.assertRegex(
-            show_alert,
-            r"if\s*\(response == NSAlertFirstButtonReturn\)\s*\{\s*"
-            r"\[self openAccessibilitySettings\];",
-        )
+    def test_manual_recheck_has_no_untrusted_dialog_or_settings_navigation(self) -> None:
+        recheck = objective_c_method(self.implementation, "-(IBAction)recheckAccessibility:")
+        self.assertIn("[self requestAccessibilityWithPrompt]", recheck)
+        self.assertNotIn("Accessibility Access Required", recheck)
+        self.assertNotIn("[self openAccessibilitySettings]", recheck)
+        self.assertEqual(recheck.count("[alert runModal]"), 1)  # Trusted information only.
 
-    def test_explanation_activates_only_after_trust_recheck(self) -> None:
-        show_alert = objective_c_method(
-            self.implementation, "- (void)showAccessibilityAlert"
-        )
-        trust_guard = "if (&AXIsProcessTrustedWithOptions != NULL && !trusted)"
-        activation = "[NSApp activateIgnoringOtherApps:YES];"
-        run_modal = "[alert runModal]"
-        for statement in (trust_guard, activation, run_modal):
-            self.assertIn(statement, show_alert)
-        self.assertLess(show_alert.index(trust_guard), show_alert.index(activation))
-        self.assertLess(show_alert.index(activation), show_alert.index(run_modal))
-
-    def test_explanation_hides_flycut_before_opening_settings(self) -> None:
-        show_alert = objective_c_method(
-            self.implementation, "- (void)showAccessibilityAlert"
-        )
-        run_modal = "[alert runModal]"
-        hide = "[self hideApp];"
-        open_settings = "[self openAccessibilitySettings];"
-        for statement in (run_modal, hide, open_settings):
-            self.assertIn(statement, show_alert)
-        self.assertLess(show_alert.index(run_modal), show_alert.index(hide))
-        self.assertLess(show_alert.index(hide), show_alert.index(open_settings))
+    def test_launch_checks_trust_without_requesting_native_consent(self) -> None:
+        awake_from_nib = objective_c_method(self.implementation, "- (void)awakeFromNib")
+        self.assertIn("kAXTrustedCheckOptionPrompt): @NO", awake_from_nib)
+        self.assertIn("AXIsProcessTrustedWithOptions", awake_from_nib)
+        self.assertNotIn("kAXTrustedCheckOptionPrompt): @YES", awake_from_nib)
+        self.assertNotIn("requestAccessibilityWithPrompt", awake_from_nib)
+        self.assertNotIn("recheckAccessibility:", awake_from_nib)
+        self.assertNotIn("openAccessibilitySettings", awake_from_nib)
 
 
 if __name__ == "__main__":
