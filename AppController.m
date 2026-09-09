@@ -22,7 +22,7 @@
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <ServiceManagement/ServiceManagement.h>
-#import <Carbon/Carbon.h>
+#import "FlycutPasteKey.h"
 
 // Custom search window that handles Cmd-W properly
 @interface SearchWindow : NSWindow
@@ -953,9 +953,17 @@
     }
     CGKeyCode veeCode = (CGKeyCode)[keyCode intValue];
     CGEventRef eventDown = CGEventCreateKeyboardEvent(sourceRef, veeCode, true);
+    CGEventRef eventUp = CGEventCreateKeyboardEvent(sourceRef, veeCode, false);
+    if (!eventDown || !eventUp)
+    {
+        if (eventDown) CFRelease(eventDown);
+        if (eventUp) CFRelease(eventUp);
+        CFRelease(sourceRef);
+        DLog(@"Could not create both keyboard events");
+        return;
+    }
     if ( setFlag )
         CGEventSetFlags(eventDown, kCGEventFlagMaskCommand|0x000008); // some apps want bit set for one of the command keys
-    CGEventRef eventUp = CGEventCreateKeyboardEvent(sourceRef, veeCode, false);
     CGEventPost(kCGHIDEventTap, eventDown);
     CGEventPost(kCGHIDEventTap, eventUp);
     CFRelease(eventDown);
@@ -992,7 +1000,7 @@
         return;
     }
 
-    [self fakeKey:@(kVK_ANSI_V) withCommandFlag:TRUE];
+    [self fakeKey:FlycutPasteKeyCode() withCommandFlag:TRUE];
 }
 
 /*" +fakeDownArrow synthesizes keyboard events for the down-arrow key. "*/
